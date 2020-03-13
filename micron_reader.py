@@ -1,7 +1,7 @@
 # micron_reader.py
 # 
 # Reads a time series of Micron Sonar data from a csv file.
-#   2020-03-15  zduguid@mit.edu         initial implementation 
+#   2020-03-13  zduguid@mit.edu         initial implementation 
 
 import glob
 import os
@@ -14,8 +14,9 @@ from MicronTimeSeries import MicronTimeSeries
 
 
 def micron_reader(filepath, location, date, 
-                  save=True, plot=False,
-                  plot_angle_spacing=5):
+                  bearing_bias=0,
+                  constant_depth=None,
+                  constant_altitude=None):
     """Reads a Micron Sonar time series from a saved csv file. 
 
     This function assumes that the saved csv file was generated from 
@@ -26,11 +27,10 @@ def micron_reader(filepath, location, date,
         filepath: the file path to the Micron Sonar csv file to read.
         location: the location where data was collected (ex: "Woods Hole MA")
         date: tuple of integers (year,month,day) (ex: 2020,01,24)
-        save: boolean flag to save the parsed data or not.
-        plot: boolean flag to plot the parsed data or not. 
-        plot_angle_spacing: plotting parameter to indicate the spacing 
-            between range-intensity to be generated. For example, if this 
-            parameter is 2, every other angle parsed will be plotted. 
+        constant_depth: Depth in [m] that the sonar is operating
+        constant_altitude: Altitude in [m] that the sonar is operating
+    Returns:
+        Micron Sonar Time Series object with the DataFrame already computed.
     """
 
     # plotting parameters 
@@ -41,14 +41,27 @@ def micron_reader(filepath, location, date,
 
     # open the csv file 
     csv_file = open(filepath)
-    header  = csv_file.readline().split(',') 
+    header   = csv_file.readline().split(',') 
 
-    # for line in csvfile:  
-    csv_row = csv_file.readline().split(',')
+    # initialize a time series object 
+    time_series = MicronTimeSeries()
 
-    # ignore the empty row at the end of the file 
-    # if (len(csv_row) == 1):
-    #     break
+    # add all ensembles to the time series 
+    for line in csv_file:  
+        csv_row = csv_file.readline().split(',')
 
-    ensemble = MicronEnsemble(csv_row, date)
-    return(ensemble)
+        # ignore the empty row at the end of the file 
+        if (len(csv_row) == 1):
+            break
+
+        # parse the Micron Sonar ensemble
+        ensemble = MicronEnsemble(csv_row, date, bearing_bias,
+                                  sonar_depth=constant_depth,
+                                  sonar_altitude=constant_altitude)
+        
+        # add the parsed ensemble to the time series 
+        time_series.add_ensemble(ensemble)
+
+    # convert the list of ensembles into a DataFrame and then return
+    time_series.to_dataframe()
+    return(time_series)

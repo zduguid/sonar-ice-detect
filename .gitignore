@@ -3,6 +3,5 @@
 .nbgrader.log
 
 # folders
-figs/
 notebook/.ipynb_checkpoints/
 __pycache__/
