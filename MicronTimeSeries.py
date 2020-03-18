@@ -26,8 +26,15 @@ class MicronTimeSeries(object):
         created.
         """
         # initialize the data_arrays
-        self._ensemble_list = []
-        self._df = None
+        self._df                = None
+        self._ensemble_list     = []
+        self._header_vars       = []
+        self._derived_vars      = []
+        self._intensity_vars    = []
+        self._label_list        = []
+        self._label_set         = set([])
+        self._data_lookup       = {}
+        self._intensity_index   = 0
 
     @property
     def header_vars(self):
@@ -36,6 +43,10 @@ class MicronTimeSeries(object):
     @property
     def derived_vars(self):
         return self._derived_vars
+
+    @property
+    def ice_vars(self):
+        return self._ice_vars
     
     @property
     def intensity_vars(self):
@@ -66,6 +77,39 @@ class MicronTimeSeries(object):
         return self._df
 
 
+    def set_label_by_bearing(self, var, val, bearing_min, bearing_max, pad=0):
+        """Set the ice label for a specific range of bearings
+
+        The pad parameter is used for when it is difficult to label the exact
+        transition angle between two different ice-types. By including a non-
+        zero pad value, it is easier to avoid mislabeling ice types.
+
+        Args:
+            var: the ice label to update.
+            val: the value for the ice label to be set to.
+            bearing_min: the minimum bearing to be included in variable update.
+            bearing_max: the maximum bearing to be included in variable update.
+            pad: the amount that the bearing window is shrunk on either side.
+        """
+        if (var not in self.label_set):
+            raise ValueError("bad var for: label(%s, %s)" % (var, str(val)))
+        self.df.loc[(self.df.bearing >= bearing_min + pad) & 
+                    (self.df.bearing  < bearing_max - pad), var] = val
+
+
+    def reset_labels(self):
+        """Reset the labeled ice parameters to np.nan"""
+        # consider the entire bearing range 
+        bearing_min = -180
+        bearing_max =  180
+        val         =  np.nan
+
+        # extract label variables 
+        labels = [var for var in self.ice_vars if var[:5]=="label"]
+        for label in labels:
+            self.set_label_by_bearing(label, val, bearing_min, bearing_max)
+
+
     def to_dataframe(self):
         """Converts the current list of ensembles into a DataFrame.
         """
@@ -92,6 +136,7 @@ class MicronTimeSeries(object):
         if not self.ensemble_list:
             self._header_vars       = ensemble.header_vars
             self._derived_vars      = ensemble.derived_vars
+            self._ice_vars          = ensemble.ice_vars
             self._intensity_vars    = ensemble.intensity_vars
             self._label_list        = ensemble.label_list
             self._label_set         = ensemble.label_set

@@ -9,14 +9,15 @@ import sys
 import time
 import pandas as pd
 import numpy as np
-from MicronEnsemble import MicronEnsemble
-from MicronTimeSeries import MicronTimeSeries
+import MicronEnsemble
+import MicronTimeSeries
 
 
 def micron_reader(filepath, location, date, 
                   bearing_bias=0,
                   constant_depth=None,
-                  constant_altitude=None):
+                  constant_altitude=None,
+                  labels=None):
     """Reads a Micron Sonar time series from a saved csv file. 
 
     This function assumes that the saved csv file was generated from 
@@ -32,6 +33,10 @@ def micron_reader(filepath, location, date,
     Returns:
         Micron Sonar Time Series object with the DataFrame already computed.
     """
+    counter = 0
+    print_increment = 100
+    filename = filepath.split('/')[-1]
+    print('Parsing: %s' % (filename))
 
     # plotting parameters 
     plot_current_delta    = 0
@@ -44,10 +49,11 @@ def micron_reader(filepath, location, date,
     header   = csv_file.readline().split(',') 
 
     # initialize a time series object 
-    time_series = MicronTimeSeries()
+    time_series = MicronTimeSeries.MicronTimeSeries()
 
     # add all ensembles to the time series 
     for line in csv_file:  
+        counter+= 1
         csv_row = csv_file.readline().split(',')
 
         # ignore the empty row at the end of the file 
@@ -55,13 +61,17 @@ def micron_reader(filepath, location, date,
             break
 
         # parse the Micron Sonar ensemble
-        ensemble = MicronEnsemble(csv_row, date, bearing_bias,
-                                  sonar_depth=constant_depth,
-                                  sonar_altitude=constant_altitude)
+        ensemble = MicronEnsemble.MicronEnsemble(
+            csv_row, date, bearing_bias, sonar_depth=constant_depth,
+            sonar_altitude=constant_altitude
+        )
         
         # add the parsed ensemble to the time series 
         time_series.add_ensemble(ensemble)
+        if (counter%print_increment == 0):
+            print("  >> Ensembles Parsed: %5d" % (counter))
 
     # convert the list of ensembles into a DataFrame and then return
     time_series.to_dataframe()
+    print('  >> Finished Parsing!')
     return(time_series)
