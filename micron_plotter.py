@@ -90,8 +90,8 @@ def plot_polar(time_series, separator=None, pad=0.2, output_file=None):
     sonar_depth = 0.4 
     max_depth   = sonar_depth*1.5
     min_depth   = 0.3
-    intensity_index   = time_series.intensity_index
-    bin_labels  = time_series.df.columns[intensity_index:]
+    bin_idx     = time_series.intensity_index
+    bin_labels  = time_series.df.columns[bin_idx:]
     sub_cols    = ['bearing_ref_world'] + list(bin_labels)
     df          = time_series.df[sub_cols][:swath]
 
@@ -129,7 +129,10 @@ def plot_polar(time_series, separator=None, pad=0.2, output_file=None):
     cbar.ax.set_yticklabels(cbar_labels)
 
     # add orange divider at the boundary 
-    plt.axvspan((separator-pad)*deg_to_rad, (separator+pad)*deg_to_rad,         color='tab:orange', alpha=0.6)
+    if separator:
+        plt.axvspan((separator-pad)*deg_to_rad, 
+                    (separator+pad)*deg_to_rad,         
+                    color='tab:orange', alpha=0.6)
 
     # save the figure
     if output_file: 
@@ -138,7 +141,7 @@ def plot_polar(time_series, separator=None, pad=0.2, output_file=None):
 
 
 def plot_incidence_curves(time_series, variable_size=False, output_file=None,
-    axis_limits=False):
+                          axis_limits=False):
     """Plot Max Intensity Norm vs. Angle of Incidence for the time-series
 
     Args:

@@ -49,7 +49,7 @@ def micron_reader(filepath, location, date,
     header   = csv_file.readline().split(',') 
 
     # initialize a time series object 
-    time_series = MicronTimeSeries.MicronTimeSeries()
+    time_series = MicronTimeSeries.MicronTimeSeries(filename)
 
     # add all ensembles to the time series 
     for line in csv_file:  

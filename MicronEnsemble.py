@@ -19,9 +19,9 @@ class MicronEnsemble(object):
 
         Args: 
             csv_row: A list of strings that represent one ensemble from the
-                Micron Sonar. The first 15 values of the list are header 
-                variables, and then the remaining variables are acoustic
-                intensity  values.
+                Micron Sonar without any additional processing. The first 15
+                values of the list are header variables, and then the
+                remaining variables are acoustic intensity  values.
             date: A tuple of integers representing (year,month,day). The date 
                 argument should match the date of which the data is recorded.
             bearing_bias: Optional argument to represent the bias of the 
@@ -114,14 +114,15 @@ class MicronEnsemble(object):
             'label_ice_percent',    # user specified label  for ice-percentage
             'label_ice_thickness',  # user specified label  for ice-thickness 
             'label_ice_slope',      # user specified label  for ice-slope
-            'label_ice_roughness'   # user specified label  for ice-roughness
+            'label_ice_roughness',  # user specified label  for ice-roughness
+            'label_saltwater_flag'  # value 1 means saltwater, 0 freshwater
         ]
 
         # bookkeep length of each variable type 
         self.header_len      = len(self.header_vars)
         self.derived_len     = len(self.derived_vars)
         self.ice_len         = len(self.ice_vars)
-        self.intensity_len   = int(csv_row[self.header_vars.index('dbytes')])
+        self.intensity_len   = 500 
         self._intensity_vars = ["bin_%s"%i for i in range(self.intensity_len)]
 
         # bookkeep list of all ensemble variables
@@ -267,10 +268,19 @@ class MicronEnsemble(object):
 
     def parse_intensity_bins(self, csv_row):
         """Parses acoustic intensity values and adds them to the data array"""
+        # more intensity bins are received than the size of the array
+        if self.dbytes > self.intensity_len:
+            raise ValueError("bad number of bins: %d" % (self.dbytes))
+
         # add intensity values to the data array 
         for i in range(self.intensity_len):
-            bin_val   = float(csv_row[i+self.header_len])
             bin_label = 'bin_' + str(i)
+            # parse the intensity value directly from the array 
+            if (i+1) < self.dbytes: 
+                bin_val   = float(csv_row[i+self.header_len])
+            # keep extra bins set to zero  
+            else:
+                break
             self.set_data(bin_label, bin_val, attribute=False)
         
         # convert intensity bins from [0,255] -> [0,80dB]
