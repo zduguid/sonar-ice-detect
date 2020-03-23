@@ -15,16 +15,25 @@
 
 
 <!-------------------------------------
-Notes:
-- red color:  cc0000
-- blue color: 0000cc
-
 Most Recent Changes:
-- hard-coded size of array to ensure arrays are all the same size 
-- added salt-water flag 
-- added ability to save and open csv files 
+- added MicronSonar superclass 
+- discovered issue with step size -- suspect error in the manual 
+  - added fix to account for this discrepancy 
+- added `crop_on_bearing` function (with ability to downselect one swath)
+- added labels for 
+  - eel pond
+  - blake tank
+  - SF day 1 
+  - SF day 2
+  - SF day 3 
+  - SF day 4 
+
 
 Changes to Make before Commit:
+- fix polar_plot function (need it to work with multiple resolutions)
+  - plt.polar() seems like a promising option 
+- fix issue with "SettingFromCopy" warning
+  - only appears sometimes? -- not sure what is causing this 
 -------------------------------------->
 
 
@@ -34,7 +43,11 @@ Changes to Make before Commit:
 <!------------------------------------>
 ### Header Variables 
 More info coming soon.
-`resolution`  `ultra (8), high (16), medium (32), low(64)`
+`resolution`  
+`ultra:    8 grad = 0.45 (tritech documentation) = 0.9 (observation)` 
+`high:    16 grad = 0.9  (tritech documentation) = 1.8 (observation)` 
+`medium:  32 grad = 1.8  (tritech documentation) = 3.6 (observation)`  
+`low:     64 grad = 3.6  (tritech documentation) = 7.2 (observation)`
 
 <!------------------------------------>
 ### Intensity Variables 
@@ -124,22 +137,22 @@ To showcase the variance in the number of intensity bins, we kept all sonar sett
 ### `MicronEnsemble` TODOs
 - dont use `ice-per` classification? -- may not make sense for small scanning window that the scanning sonar is able to view. instead, ice percentage can be computed in a post-processing effort with geo-referenced swaths over a larger area of survey  
 - how to normalize with respect to gain and distance from transducer? (already have distance factored into the normalized max intensity)
-- manually set `intensity_len` constant value for all ensemble files. find the max value that can be expected by examining the sonar data file 
 - convert `status` and `Hdctrl` to binary and process for status (reject values that are not OK). see some initial code for doing this in the Python notebook. 
     - investigate why status value is 144? (if 144 is int -> 8 bits, if 144 is hex -> requires 9 bits) (call Tritech about this?)
 - what dictates the number of dbytes included in an ensemble? -- not obvious upon inspecting the data-files, but perhaps it will be easier to discern when using a low-level polling method. 
  
 <!------------------------------------>
 ### `MicronTimeSeries` TODOs
-- add ice detection/classification to the ensemble (perhaps just runs on the most recent swath)
 - if data in ensemble_list is from different time points or is not currently in the DataFrame, add them (make this more like a "union" function between self.df and self.column_list
 - write function to combine two different time-series 
-- write function to save time_series to csv file 
-- write function to parse time_series from CSV file 
-    - write new Micron class that is the superclass to the Ensemble and TimeSeries, this allows same definition of variable names 
 - compute `ice_roughness` and `ice_slope` calculations 
 - collect groups of ensembles into "swaths" which are used for classification. Note that the classification function should operate in a wide variety of polling strategies. Perhaps the TimeSeries object can keep track of a running list of "most recent" swath collected (with time bounds potentially?) that keep track of most recently seen bearing_ref_world values. Then a function that classifies ice-types will run on the most recent swath.
 - better plan for object inheritance between the Micron Sonar and the Pathfinder? -- probably an unnecessary effort given how many subtle differences between the two instruments and their data products. That said, trying to use a similar design architecture between the two are useful for readability and usability. 
 
 <!------------------------------------>
 ### `micron_reader` TODOs
+
+
+<!------------------------------------>
+### `micron_plotter` TODOs
+- add radial distance markings to the polar plot 

@@ -13,7 +13,7 @@ import MicronEnsemble
 import MicronTimeSeries
 
 
-def micron_reader(filepath, location, date, 
+def micron_reader(filepath, date, 
                   bearing_bias=0,
                   constant_depth=None,
                   constant_altitude=None,
@@ -26,7 +26,6 @@ def micron_reader(filepath, location, date,
 
     Args: 
         filepath: the file path to the Micron Sonar csv file to read.
-        location: the location where data was collected (ex: "Woods Hole MA")
         date: tuple of integers (year,month,day) (ex: 2020,01,24)
         constant_depth: Depth in [m] that the sonar is operating
         constant_altitude: Altitude in [m] that the sonar is operating
@@ -36,6 +35,7 @@ def micron_reader(filepath, location, date,
     counter = 0
     print_increment = 100
     filename = filepath.split('/')[-1]
+    file     = filename.split('.')[0]
     print('Parsing: %s' % (filename))
 
     # plotting parameters 
@@ -49,12 +49,12 @@ def micron_reader(filepath, location, date,
     header   = csv_file.readline().split(',') 
 
     # initialize a time series object 
-    time_series = MicronTimeSeries.MicronTimeSeries(filename)
+    time_series = MicronTimeSeries.MicronTimeSeries(file)
 
     # add all ensembles to the time series 
     for line in csv_file:  
-        counter+= 1
-        csv_row = csv_file.readline().split(',')
+        counter += 1
+        csv_row  = csv_file.readline().split(',')
 
         # ignore the empty row at the end of the file 
         if (len(csv_row) == 1):

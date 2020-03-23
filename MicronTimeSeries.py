@@ -6,11 +6,13 @@
 
 import csv
 import numpy as np
+import math
 import pandas as pd 
 from datetime import datetime
+from MicronSonar import MicronSonar
 
 
-class MicronTimeSeries(object):
+class MicronTimeSeries(MicronSonar):
     def __init__(self, name=datetime.now().strftime("%Y-%m-%d %H:%M:%S")):
         """Constructor of a Micron Sonar time series of ensembles.
 
@@ -31,59 +33,18 @@ class MicronTimeSeries(object):
                 filename of the parsed Micron Sonar file. The name attribute 
                 is used when saving a parsed time-series to CSV format. 
         """
-        # initialize the data_arrays
-        self._name              = 'MicronTimeSeries_' + name
-        self._df                = None
-        self._ensemble_list     = []
-        self._header_vars       = []
-        self._derived_vars      = []
-        self._ice_vars          = []
-        self._intensity_vars    = []
-        self._label_list        = []
-        self._label_set         = set([])
-        self._data_lookup       = {}
-        self._ensemble_size     = 0
-        self._intensity_index   = 0
+        # use the parent constructor for defining Micron Sonar variables
+        super().__init__()
+
+        # initialize the DataFrame and ensemble list parameters 
+        self._name          = name
+        self._df            = None
+        self._ensemble_list = []
+
 
     @property
     def name(self):
         return self._name
-    
-    @property
-    def header_vars(self):
-        return self._header_vars
-    
-    @property
-    def derived_vars(self):
-        return self._derived_vars
-
-    @property
-    def ice_vars(self):
-        return self._ice_vars
-    
-    @property
-    def intensity_vars(self):
-        return self._intensity_vars
-
-    @property
-    def ensemble_size(self):
-        return self._ensemble_size
-    
-    @property
-    def label_list(self):
-        return self._label_list
-
-    @property
-    def label_set(self):
-        return self._label_set
-    
-    @property
-    def data_lookup(self):
-        return self._data_lookup
-
-    @property
-    def intensity_index(self):
-        return self._intensity_index
 
     @property
     def ensemble_list(self):
@@ -100,20 +61,6 @@ class MicronTimeSeries(object):
         Args: 
             ensemble: a Micron Sonar ensemble  
         """
-        # set attributes of the time series that are assumed constant
-        #   - all the values associated with these labels will change
-        #     from ensemble to ensemble but the labels themselves will
-        #     not change 
-        if not self.ensemble_list:
-            self._header_vars       = ensemble.header_vars
-            self._derived_vars      = ensemble.derived_vars
-            self._ice_vars          = ensemble.ice_vars
-            self._intensity_vars    = ensemble.intensity_vars
-            self._label_list        = ensemble.label_list
-            self._label_set         = ensemble.label_set
-            self._data_lookup       = ensemble.data_lookup
-            self._intensity_index   = ensemble.intensity_index
-            self._ensemble_size     = len(self.label_list)
         self._ensemble_list.append(ensemble.data_array)
 
 
@@ -139,9 +86,10 @@ class MicronTimeSeries(object):
             # convert to DataFrame if ensembles have been collected
             if self.ensemble_list and self.df is None:
                 self.to_dataframe()
+
             # save DataFrame to csv file
             if self.df is not None:
-                self.df.to_csv(directory+self.name)
+                self.df.to_csv(directory+self.name+'.CSV')
             else:
                 print("WARNING: No data to save")
 
@@ -162,29 +110,6 @@ class MicronTimeSeries(object):
             # parse the DataFrame from the csv file 
             self._df = pd.read_csv(filepath, header=0, index_col=0, 
                                    parse_dates=True)
-
-            # find indices that indicate change in variable type
-            var_list = list(self.df.columns)
-            head_idx = var_list.index('dbytes')+1
-            ice_idx  = [i for i, s in enumerate(var_list) if s[:5]=='class'][0]
-            bin_idx  = [i for i, s in enumerate(var_list) if s[:5]=='bin_0'][0]
-
-            # parse variable lists from indices
-            self._header_vars    = var_list[         : head_idx]
-            self._derived_vars   = var_list[head_idx :  ice_idx]
-            self._ice_vars       = var_list[ice_idx  :  bin_idx]
-            self._intensity_vars = var_list[bin_idx  :         ]    
-
-            self._label_list = self.header_vars  + \
-                               self.derived_vars + \
-                               self.ice_vars     + \
-                               self.intensity_vars
-            self._label_set       = set(self.label_list)
-            self._ensemble_size   = len(self.label_list)
-            self._intensity_index = bin_idx
-            self._data_lookup     = {
-                self.label_list[i]:i for i in range(self.ensemble_size)
-            }
         else:
             print("WARNING: parsing from csv will erase existing data")
 
@@ -205,8 +130,8 @@ class MicronTimeSeries(object):
         """
         if (var not in self.label_set):
             raise ValueError("bad var for: label(%s, %s)" % (var, str(val)))
-        self.df.loc[(self.df.bearing >= bearing_min + pad) & 
-                    (self.df.bearing  < bearing_max - pad), var] = val
+        self.df.loc[((self.df.bearing >= bearing_min + pad) & 
+                     (self.df.bearing  < bearing_max - pad)), var] = val
 
 
     def reset_labels(self):
@@ -221,4 +146,43 @@ class MicronTimeSeries(object):
         for label in labels:
             self.set_label_by_bearing(label, val, bearing_min, bearing_max)
 
+
+    def crop_on_bearing(self, left_bearing=-180, right_bearing=180,
+        single_swath=False):
+        """Crops DataFrame based on bearing value of sonar ensembles.  
+
+        Allows the option of down-selecting a single swath from the data file.
+
+        Args:
+            left_bearing: the left-most bearing to be included in the cropped 
+                DataFrame. Default value includes full bearing window.
+            
+            right_bearing: the right-most bearing to be included in the cropped
+                DataFrame. Default value includes full bearing window.
+            
+            single_swath: Boolean flag that determines if a single swath is 
+                selected from the DataFrame. 
+        """
+        if single_swath: 
+            name = self.name + '_swath'
+        else:            
+            name = self.name + '_cropped'
+        ts = MicronTimeSeries(name)
+
+        # crop bearing differently depending on relative value of bearings 
+        if right_bearing > left_bearing:
+            ts._df = self.df[(self.df.bearing_ref_world >= left_bearing) & 
+                             (self.df.bearing_ref_world <= right_bearing)]
+        else: 
+            ts._df = self.df[(self.df.bearing_ref_world >= left_bearing) | 
+                             (self.df.bearing_ref_world <= right_bearing)]
+
+        # down-select one complete swath within the bearing window provided
+        if single_swath:
+            steps  = self.df.steps[0]
+            steps += -0.1
+            swath  = math.ceil(abs(right_bearing-left_bearing)/steps)*2
+            ts._df = ts.df[:swath]
+
+        return(ts)
 

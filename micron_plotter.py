@@ -68,8 +68,13 @@ def plot_ensemble(ensemble, location, output_file=None):
 
 
 
-def plot_polar(time_series, separator=None, pad=0.2, output_file=None):
+def plot_polar(time_series, separator=None, pad=0.2, output_file=None, 
+    plot_depth=None):
     """Generates a plot in polar coordinates of a Micron Time-Series
+
+    It is recommended to first crop the time series such that only one swath 
+    is plotted in polar coordinates. Doing so may greatly speed up plotting 
+    time.
 
     Args: 
         time_series: a Micron Time-Series to be visualized
@@ -77,23 +82,16 @@ def plot_polar(time_series, separator=None, pad=0.2, output_file=None):
         pad: half the angular width of the separator when visualized
         output_file: save name for the generated plot.
     """
-    deg_to_rad = np.pi/180
-    
-    # get limits 
-    left  = time_series.df['left_lim'][0]
-    right = time_series.df['right_lim'][0]
-    steps = time_series.df['steps'][0]
-    swath = math.ceil(abs(right-left)/steps)
-    bin_size = time_series.df['bin_size'][0]
+    deg_to_rad    = np.pi/180
+    deg_in_circle = 360
+    bin_size      = time_series.df['bin_size'][0]
 
     # filter out appropriate ranges 
-    sonar_depth = 0.4 
-    max_depth   = sonar_depth*1.5
     min_depth   = 0.3
     bin_idx     = time_series.intensity_index
     bin_labels  = time_series.df.columns[bin_idx:]
     sub_cols    = ['bearing_ref_world'] + list(bin_labels)
-    df          = time_series.df[sub_cols][:swath]
+    df          = time_series.df[sub_cols]
 
     # melt data-frame into three columns: bearing, range, intensity 
     new_cols   = ['bearing_ref_world'] + \
@@ -112,7 +110,12 @@ def plot_polar(time_series, separator=None, pad=0.2, output_file=None):
     area = np.asarray(100*df['range'] + 20).astype(np.float64)
     img = ax.scatter(df['bearing_ref_world']*np.pi/180, df['range'], s=area, 
                      c=df['intensity'],cmap='viridis')
-    ax.set_rmax(max_depth)
+
+    # TODO need to convert intensity to hue value (colormap)
+    # colors = pl.cm.jet(np.linspace(0,1,100))
+    # plt.polar(df['bearing_ref_world']*np.pi/180, df['range'])#c=df['intensity'])
+    if plot_depth: 
+        ax.set_rmax(plot_depth)
     ax.set_theta_zero_location('N')
     ax.set_theta_direction(-1)
     ax.set_thetalim(-np.pi, np.pi)
@@ -129,7 +132,7 @@ def plot_polar(time_series, separator=None, pad=0.2, output_file=None):
     cbar.ax.set_yticklabels(cbar_labels)
 
     # add orange divider at the boundary 
-    if separator:
+    if separator is not None:
         plt.axvspan((separator-pad)*deg_to_rad, 
                     (separator+pad)*deg_to_rad,         
                     color='tab:orange', alpha=0.6)
@@ -141,7 +144,7 @@ def plot_polar(time_series, separator=None, pad=0.2, output_file=None):
 
 
 def plot_incidence_curves(time_series, variable_size=False, output_file=None,
-                          axis_limits=False):
+    axis_limits=False):
     """Plot Max Intensity Norm vs. Angle of Incidence for the time-series
 
     Args:
@@ -153,7 +156,7 @@ def plot_incidence_curves(time_series, variable_size=False, output_file=None,
     fig, ax = plt.subplots(figsize=(15,8))
     pad_x = 2
     pad_y = 2
-    y_max = 20
+    y_max = 60
     x_max = 60
 
     def is_number(s):
@@ -195,12 +198,14 @@ def plot_incidence_curves(time_series, variable_size=False, output_file=None,
     else:             size = None
 
     # plot scatter plot of incidence angle and intensity values
-    ax = sns.scatterplot(x=time_series.df.incidence_angle, 
-                         y=time_series.df.max_intensity_norm, 
-                         size=size,
-                         hue=time_series.df.label_ice_category,
-                         palette=palette,
-                         legend='brief')
+    ax = sns.scatterplot(
+        x=time_series.df.incidence_angle, 
+        y=time_series.df.max_intensity_norm,
+        size=size,
+        hue=time_series.df.label_ice_category,
+        palette=palette,
+        legend='brief'
+    )
 
     # set titles and labels
     ax.set_title('Incidence vs Intensity for Water and Ice', 
@@ -215,7 +220,7 @@ def plot_incidence_curves(time_series, variable_size=False, output_file=None,
     # only keep numeric labels, convert number to ice category
     handles, labels = ax.get_legend_handles_labels()
     new_handles, new_labels = get_legend_items(handles,labels)
-    ax.legend(new_handles, new_labels, title='Ice Category', loc='upper left')
+    ax.legend(new_handles, new_labels, title='Ice Category', loc='lower left')
 
     # save the figure
     if output_file: plt.savefig("../figs/%s.png" % (output_file))
