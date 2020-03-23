@@ -28,9 +28,9 @@ class MicronSonar(object):
         self.blanking_distance = 0.35   # min-range of Micron Sonar in [m]
         self.reflection_factor = 1.5    # used for filtering out reflections 
 
-        # header variables automatically saved by the Micron Sonar
-        #   - DO NOT edit header_vars, sonar outputs exactly this order
-        self._header_vars = [
+        # tuple of variables automatically reported by Micron Sonar
+        #   - DO NOT edit header_vars, sonar outputs exactly in this order
+        self._header_vars = (
             'line_header',          # line header (not important)
             'date_time',            # date and time the line was recorded
             'node',                 # node is 2 for imaging sonar
@@ -46,11 +46,11 @@ class MicronSonar(object):
             'steps',                # angular step size
             'bearing',              # bearing relative to the transducer head 
             'dbytes'                # the number of retrieved intensity values
-        ]
+        )
 
-        # variables that are derived from the intensity and header values
+        # tuple of variables derived from the intensity and header values
         #   - add variables to derived_vars as necessary
-        self._derived_vars = [
+        self._derived_vars = (
             'year',                 # year that the data was recorded
             'month',                # month that the data was recorded
             'day',                  # day that the data was recorded
@@ -70,14 +70,14 @@ class MicronSonar(object):
             'peak_width_bin',       # bin width of the peak
             'peak_width',           # width of peak in terms of distance
             'vertical_range'        # vertical range from transducer head [m]
-        ]
+        )
 
-        # variables related to the classification of ice
+        # tuple of variables related to the classification of ice
         #   + each variable has a classification (automated process) and
         #     labeled (manual process)
         #   + the goal is to use the labeled data to train a high-performance 
         #     classification system
-        self._ice_vars = [
+        self._ice_vars = (
             'class_ice_category',   # classification result for ice-category
             'class_ice_presence',   # classification result for ice-presence
             'class_ice_percent',    # classification result for ice-percentage
@@ -91,15 +91,17 @@ class MicronSonar(object):
             'label_ice_slope',      # user specified label  for ice-slope
             'label_ice_roughness',  # user specified label  for ice-roughness
             'label_saltwater_flag'  # value 1 means saltwater, 0 freshwater
-        ]
+        )
 
         # bookkeep length of each variable type 
         self._header_len     = len(self.header_vars)
         self._derived_len    = len(self.derived_vars)
         self._ice_len        = len(self.ice_vars)
         self._intensity_len  = 500 
-        self._intensity_vars = ["bin_%s"%i for i in range(self.intensity_len)]
-
+        
+        # tuple of variables related to the intensity bins of the sonar
+        self._intensity_vars = tuple(["bin_%s"%i for i in \
+                                      range(self.intensity_len)])
         # bookkeep list of all ensemble variables
         self._label_list        = self.header_vars  + \
                                   self.derived_vars + \
@@ -108,11 +110,15 @@ class MicronSonar(object):
         self._intensity_index   = self.header_len   + \
                                   self.derived_len  + \
                                   self.ice_len
+        self._version           = hash(self.label_list)
         self._label_set         = set(self.label_list)
         self._ensemble_size     = len(self.label_list)
-        self._data_lookup    = {self.label_list[i]:i \
-                                for i in range(self.ensemble_size)}
+        self._data_lookup       = {self.label_list[i]:i \
+                                   for i in range(self.ensemble_size)}
 
+    @property
+    def version(self):
+        return self._version
 
     @property
     def header_vars(self):

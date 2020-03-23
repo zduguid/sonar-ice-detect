@@ -44,7 +44,7 @@ class MicronEnsemble(MicronSonar):
         self._data_array     = np.zeros(self.ensemble_size)
 
         # parse header and acoustic intensities, compute derived variables 
-        self.set_data('sonar_depth',    sonar_depth)
+        self.set_data('sonar_depth', sonar_depth)
         self.set_data('sonar_altitude', sonar_altitude)
         self.parse_header(csv_row, date, bearing_bias)
         self.parse_intensity_bins(csv_row)

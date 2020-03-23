@@ -9,7 +9,10 @@ import numpy as np
 import math
 import pandas as pd 
 from datetime import datetime
+from os import listdir
+from os.path import isfile, join
 from MicronSonar import MicronSonar
+from MicronEnsemble import MicronEnsemble
 
 
 class MicronTimeSeries(MicronSonar):
@@ -55,6 +58,121 @@ class MicronTimeSeries(MicronSonar):
         return self._df
 
 
+    @classmethod
+    def from_csv(cls, filepath):
+        """Constructor of a Micron Time Series from a processed CSV file
+
+        Note that this function parses CSV files that have been saved with 
+        MicronTimeSeries.save_as_csv(), not CSV files that are logged 
+        by the Micron Sonar directly. For the latter case, use the static method from_raw_csv() instead.
+        
+        Args: 
+            filepath: the filepath to the csv file to be opened and parsed.
+        """
+        # parse the DataFrame from the provided CSV file
+        name   = filepath.split('/')[-1].split('.')[0]
+        new_df = pd.read_csv(filepath, header=0, index_col=0, parse_dates=True)
+        ts     = cls(name)
+        print('>> Parsing: %s' % (name))
+
+        # raise error if the given CSV columns do not match 
+        new_df_version = hash(tuple(new_df.columns))
+        if ts.version != new_df_version:
+            raise ValueError("bad csv file for: from_csv(%s)" % (name))
+
+        ts._df = new_df
+        return(ts)
+
+
+    @classmethod
+    def from_csv_directory(cls, filepath, name=None):
+        """Constructor of a Micron Time Series from a directly of CSV files
+        """
+        print("Parsing folder of CSV files")
+        # acquire a list of all files in the provided directory 
+        file_list   = [f for f in listdir(filepath) if 
+                       isfile(join(filepath, f)) and f.split('.')[-1] == 'CSV']
+        frames      = [cls.from_csv(filepath+f).df for f in file_list]
+        ts          =  cls.from_frames(frames, name)
+        print('>> Finished Parsing!')
+        return(ts)
+
+
+    @classmethod
+    def from_frames(cls, frames, name=None):
+        """Constructor of a Micron Time Series from a list of DataFrame objects
+        """
+        if name: ts = cls(name)
+        else:    ts = cls()
+
+        # check to make sure all provided DataFrames have the same columns 
+        for df in frames:
+            df_version = hash(tuple(df.columns))
+            if ts.version != df_version:
+                raise ValueError("bad csv file for: from_frames(%s)" % (df))
+
+        # combine the DataFrames together 
+        ts._df = pd.concat(frames)
+        return(ts)
+
+
+    @classmethod
+    def from_raw_csv(cls, filepath, date, bearing_bias=0, 
+        constant_depth=None, constant_altitude=None):
+        """Constructor of a Micron Time Series from a raw Micron CSV file 
+
+        This function assumes that the saved csv file was generated from the
+        Micron Sonar directly (or converted to CSV format from Tritech's
+        Seanet DumpLog software), not an already parsed Time Series object.
+        For the latter, use the TimeSeries.from_csv() class method.
+
+        Args: 
+            filepath: the file path to the Micron Sonar csv file to read.
+            date: tuple of integers (year,month,day) (ex: 2020,01,24)
+            bearing_bias: bias in the sonar head (positive means rolling right)
+            constant_depth: Depth in [m] that the sonar is operating
+            constant_altitude: Altitude in [m] that the sonar is operating
+        Returns:
+            Micron Sonar Time Series object.
+        """
+        count   = 0
+        notify  = 100
+        file    = filepath.split('/')[-1].split('.')[0]
+        print('Parsing: %s' % (file))
+
+        # open the csv file 
+        csv_file = open(filepath)
+        header   = csv_file.readline().split(',') 
+
+        # initialize a time series object 
+        ts = cls(file)
+
+        # add all ensembles to the time series 
+        for line in csv_file:  
+            count   += 1
+            csv_row  = csv_file.readline().split(',')
+
+            # ignore the empty row at the end of the file 
+            if (len(csv_row) == 1):
+                break
+
+            # parse the Micron Sonar ensemble
+            ensemble = MicronEnsemble(
+                csv_row, date, bearing_bias, sonar_depth=constant_depth,
+                sonar_altitude=constant_altitude
+            )
+            
+            # add the parsed ensemble to the time series 
+            ts.add_ensemble(ensemble)
+            if (count % notify == 0):
+                print("  >> Ensembles Parsed: %5d" % (count))
+
+        # convert the list of ensembles into a DataFrame and then return
+        ts.to_dataframe()
+        print('  >> Finished Parsing!')
+        return(ts)
+
+
     def add_ensemble(self, ensemble):
         """Adds a Micron Sonar ensemble to the growing list of ensembles.
 
@@ -66,52 +184,55 @@ class MicronTimeSeries(MicronSonar):
 
     def to_dataframe(self):
         """Converts the current list of ensembles into a DataFrame.
+
+        Note: calling this function will invoke pd.concat(), which creates a 
+        copy of the whole DataFrame in memory. As a result, if this function 
+        is called many times, there will be significant slowdown. Instead,
+        consider collecting ensembles into the ensemble_list until a suitable 
+        number of ensembles have been collected, and then intermittently call 
+        the to_dataframe function.
         """
-        ts      = np.array(self.ensemble_list)
-        cols    = self.label_list
-        t_index = self.data_lookup['date_time']
-        t       = ts[:,t_index]
-        index   = pd.DatetimeIndex([datetime.fromtimestamp(val) for val in t])
+        # convert available ensembles to DataFrame
+        if self.ensemble_list:
+            ts      = np.array(self.ensemble_list)
+            cols    = self.label_list
+            t_index = self.data_lookup['date_time']
+            t       = ts[:,t_index]
+            index   = pd.DatetimeIndex([datetime.fromtimestamp(v) for v in t])
+            new_df  = pd.DataFrame(data=ts, index=index, columns=cols)
 
-        # save to data-frame 
-        self._df  = pd.DataFrame(data=ts, index=index, columns=cols)
+            # concatenate new ensembles with existing DataFrame if possible
+            if self.df is None:
+                self._df = new_df
+            else:
+                self._df = pd.concat([self.df, new_df])
+
+            # reset the ensemble list once added to the DataFrame
+            self._ensemble_list = []
+        else:
+            print("WARNING: No ensembles to add to DataFrame.")
 
 
-    def save_as_csv(self, directory='./'):
+    def save_as_csv(self, name=None, directory='./'):
             """Saves the DataFrame to csv file. 
 
             Args:
-                directory: string directory to save the DataFrame to
+                name: name used when saving the file.
+                directory: string directory to save the DataFrame to.
             """
-            # convert to DataFrame if ensembles have been collected
-            if self.ensemble_list and self.df is None:
+            # update name if not given
+            if name is None:
+                name = self.name 
+
+            # add ensembles to the DataFrame if they haven't been added yet
+            if self.ensemble_list:
                 self.to_dataframe()
 
             # save DataFrame to csv file
             if self.df is not None:
-                self.df.to_csv(directory+self.name+'.CSV')
+                self.df.to_csv(directory+name+'.CSV')
             else:
-                print("WARNING: No data to save")
-
-
-    def from_csv(self, filepath):
-        """Parse Micron Time Series from a parsed CSV file.
-
-        Note that this function parses CSV files that have been saved with 
-        "MicronTimeSeries.save_as_csv()", not CSV files that are logged 
-        by the Micron Sonar directly. CSV files that are logged by the Micron 
-        Sonar must first be parsed into a time series object using the 
-        "micron_reader" file.
-        
-        Args: 
-            filepath: the filepath to the csv file to be opened and parsed.
-        """
-        if self.df is None:
-            # parse the DataFrame from the csv file 
-            self._df = pd.read_csv(filepath, header=0, index_col=0, 
-                                   parse_dates=True)
-        else:
-            print("WARNING: parsing from csv will erase existing data")
+                print("WARNING: No data to save.")
 
 
     def set_label_by_bearing(self, var, val, bearing_min, bearing_max, pad=0):
