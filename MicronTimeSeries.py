@@ -76,8 +76,7 @@ class MicronTimeSeries(MicronSonar):
         print('>> Parsing: %s' % (name))
 
         # raise error if the given CSV columns do not match 
-        new_df_version = hash(tuple(new_df.columns))
-        if ts.version != new_df_version:
+        if ts.label_list != tuple(new_df.columns):
             raise ValueError("bad csv file for: from_csv(%s)" % (name))
 
         ts._df = new_df
@@ -107,8 +106,7 @@ class MicronTimeSeries(MicronSonar):
 
         # check to make sure all provided DataFrames have the same columns 
         for df in frames:
-            df_version = hash(tuple(df.columns))
-            if ts.version != df_version:
+            if ts.label_list != tuple(df.columns):
                 raise ValueError("bad csv file for: from_frames(%s)" % (df))
 
         # combine the DataFrames together 

@@ -1,7 +1,7 @@
 # Micron.py
 # 
 # Superclass for Micron Sonar Data 
-#   2020-03-33  zduguid@mit.edu         initial implementation 
+#   2020-03-25  zduguid@mit.edu         initial implementation 
 
 import numpy as np
 
@@ -13,20 +13,21 @@ class MicronSonar(object):
         Micron Sonar objects. 
         """
         # unit conversion multipliers 
-        self.deg_to_rad  = np.pi/180    # [deg] -> [rad]
-        self.rad_to_deg  = 180/np.pi    # [rad] -> [deg]
-        self.grad_to_deg = 360/6400     # [1/16 Gradians] -> [deg]
-        self.dm_to_m     = 1/10         # [dm] -> [m]
-        self.bin_to_db   = 80/255       # [0,255] -> [0,80dB]
+        self.DEG_TO_RAD  = np.pi/180    # [deg] -> [rad]
+        self.RAD_TO_DEG  = 180/np.pi    # [rad] -> [deg]
+        self.GRAD_TO_DEG = 360/6400     # [1/16 Gradians] -> [deg]
+        self.DM_TO_M     = 1/10         # [dm] -> [m]
+        self.BIN_TO_DB   = 80/255       # [0,255] -> [0,80dB]
 
         # other constants 
         #   - the min_range parameter was taken from the sonar spec sheet
         #   - the roll_median_len and conv_kernel_len parameters were tuned to
         #     achieve the desired performance.
-        self.roll_median_len   = 5      # used for taking rolling median
-        self.conv_kernel_len   = 5      # used when taking convolution 
-        self.blanking_distance = 0.35   # min-range of Micron Sonar in [m]
-        self.reflection_factor = 1.5    # used for filtering out reflections 
+        self.ROLL_MEDIAN_LEN   = 5      # used for taking rolling median
+        self.CONV_KERNEL_LEN   = 5      # used when taking convolution 
+        self.BLANKING_DISTANCE = 0.35   # min-range of Micron Sonar in [m]
+        self.REFLECTION_FACTOR = 1.5    # used for filtering out reflections 
+        self.COS_EPSILON       = 1e-3   # used to avoid division by zero
 
         # tuple of variables automatically reported by Micron Sonar
         #   - DO NOT edit header_vars, sonar outputs exactly in this order
@@ -110,15 +111,11 @@ class MicronSonar(object):
         self._intensity_index   = self.header_len   + \
                                   self.derived_len  + \
                                   self.ice_len
-        self._version           = hash(self.label_list)
         self._label_set         = set(self.label_list)
         self._ensemble_size     = len(self.label_list)
         self._data_lookup       = {self.label_list[i]:i \
                                    for i in range(self.ensemble_size)}
 
-    @property
-    def version(self):
-        return self._version
 
     @property
     def header_vars(self):

@@ -100,9 +100,9 @@ class MicronEnsemble(MicronSonar):
                 date_time = date_time.replace(year=year, month=month, day=day,
                                               microsecond=0)
                 self.set_data('date_time', date_time.timestamp())
-                self.set_data('year', year)
+                self.set_data('year',  year)
                 self.set_data('month', month)
-                self.set_data('day', day)
+                self.set_data('day',   day)
 
             # parse all other header variables (all others are numerical) 
             else:
@@ -114,13 +114,13 @@ class MicronEnsemble(MicronSonar):
         self.set_data('bearing_bias', bearing_bias)
 
         # convert header values to standard metric values 
-        self.convert_to_metric('range_scale', self.dm_to_m)
-        self.convert_to_metric('left_lim',    self.grad_to_deg)
-        self.convert_to_metric('right_lim',   self.grad_to_deg)
-        self.convert_to_metric('steps',       self.grad_to_deg*2)
-        self.convert_to_metric('bearing',     self.grad_to_deg)
-        self.convert_to_metric('ad_low',      self.bin_to_db)
-        self.convert_to_metric('ad_span',     self.bin_to_db)
+        self.convert_to_metric('range_scale', self.DM_TO_M)
+        self.convert_to_metric('left_lim',    self.GRAD_TO_DEG)
+        self.convert_to_metric('right_lim',   self.GRAD_TO_DEG)
+        self.convert_to_metric('steps',       self.GRAD_TO_DEG*2)
+        self.convert_to_metric('bearing',     self.GRAD_TO_DEG)
+        self.convert_to_metric('ad_low',      self.BIN_TO_DB)
+        self.convert_to_metric('ad_span',     self.BIN_TO_DB)
 
         # update coordinate system of Micron Sonar bearing 
         #   - includes bearing bias correction 
@@ -161,7 +161,7 @@ class MicronEnsemble(MicronSonar):
             self.set_data(bin_label, bin_val, attribute=False)
         
         # convert intensity bins from [0,255] -> [0,80dB]
-        self.convert_to_metric('intensity', self.bin_to_db, intensity=True)
+        self.convert_to_metric('intensity', self.BIN_TO_DB, intensity=True)
 
         # filter out blanking distance and surface/bottom reflections 
         self.filter_blanking_distance()
@@ -227,7 +227,7 @@ class MicronEnsemble(MicronSonar):
         deg_in_half      = 180
         bearing_deg     *= -1
         if bearing_deg  <= -deg_in_half:
-            bearing_deg += deg_in_circle
+            bearing_deg +=  deg_in_circle
 
         # if given, include bearing bias term (possible due to vehicle roll)
         if bias: 
@@ -237,7 +237,7 @@ class MicronEnsemble(MicronSonar):
 
     def filter_blanking_distance(self):
         """Filters out the intensity values within blanking distance"""
-        blanking_dist_bin = math.ceil(self.blanking_distance/self.bin_size)
+        blanking_dist_bin = math.ceil(self.BLANKING_DISTANCE/self.bin_size)
         self._data_array[self.intensity_index : 
                          self.intensity_index + blanking_dist_bin] = 0
 
@@ -245,8 +245,7 @@ class MicronEnsemble(MicronSonar):
     def filter_reflections(self):
         """Filters out surface and bottom reflections"""
         # epsilon defined to detect when cosine is sufficiently close to zero
-        epsilon  = 1e-3
-        cos_bear = abs(np.cos(self.bearing_ref_world * self.deg_to_rad))
+        cos_bear = abs(np.cos(self.bearing_ref_world * self.DEG_TO_RAD))
 
         def filter_at_dist(dist):
             """Inner function for filtering array values"""
@@ -256,14 +255,14 @@ class MicronEnsemble(MicronSonar):
         # filter-out surface reflections when depth is known
         if ((self.sonar_depth) and 
             (abs(self.bearing_ref_world) < 90) and
-            (cos_bear >= epsilon)):
-            filter_at_dist(self.sonar_depth*self.reflection_factor/cos_bear)
+            (cos_bear >= self.COS_EPSILON)):
+            filter_at_dist(self.sonar_depth*self.REFLECTION_FACTOR/cos_bear)
         
         # filter-out bottom reflections when depth is known
         if ((self.sonar_altitude) and 
             (abs(self.bearing_ref_world) > 90) and
-            (cos_bear >= epsilon)):
-            filter_at_dist(self.sonar_altitude*self.reflection_factor/cos_bear)
+            (cos_bear >= self.COS_EPSILON)):
+            filter_at_dist(self.sonar_altitude*self.REFLECTION_FACTOR/cos_bear)
 
 
     def get_peak_width(self):
@@ -276,9 +275,9 @@ class MicronEnsemble(MicronSonar):
         """
         # get width of values that satisfy the threshold 
         bin_data = pd.DataFrame(self.intensity_data)
-        bin_roll = bin_data.rolling(self.roll_median_len, center=True).median()
+        bin_roll = bin_data.rolling(self.ROLL_MEDIAN_LEN, center=True).median()
         bin_roll = bin_roll.replace(np.nan, 0).to_numpy().flatten()
-        kernel   = np.ones(self.conv_kernel_len, dtype=int)
+        kernel   = np.ones(self.CONV_KERNEL_LEN, dtype=int)
         
         # threshold the array based on half of the maximum intensity 
         bin_threshold = np.array(bin_roll)
@@ -307,7 +306,7 @@ class MicronEnsemble(MicronSonar):
 
     def get_vertical_range(self):
         """Computes the vertical range using slant range and bearing"""
-        cos_bearing = np.cos(self.bearing_ref_world * self.deg_to_rad)
+        cos_bearing = np.cos(self.bearing_ref_world * self.DEG_TO_RAD)
 
         # compute vertical range depending on the cosine of the bearing 
         if cos_bearing < 0:
