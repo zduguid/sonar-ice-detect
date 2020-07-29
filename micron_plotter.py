@@ -96,11 +96,14 @@ def plot_polar(time_series, separator=None, pad=0.2, output_file=None,
     steps         = time_series.df['steps'][0]
     interpolation = int(steps/ultra_steps) - 1
 
+    # plot only first swath 
+    swath = time_series.crop_on_bearing(single_swath=True)     
+
     # filter out appropriate ranges 
-    bin_idx     = time_series.intensity_index
-    bin_labels  = time_series.df.columns[bin_idx:]
+    bin_idx     = swath.intensity_index
+    bin_labels  = swath.df.columns[bin_idx:]
     sub_cols    = ['bearing_ref_world'] + list(bin_labels)
-    df          = time_series.df[sub_cols]
+    df          = swath.df[sub_cols]
 
     # melt data-frame into three columns: bearing, range, intensity 
     new_cols   = ['bearing_ref_world'] + \
@@ -175,9 +178,8 @@ def plot_polar(time_series, separator=None, pad=0.2, output_file=None,
                     color='tab:orange', alpha=0.6)
         
     # save the figure
-    if output_file: 
-        plt.savefig("../figs/%s.png" % (output_file))
-    plt.close()
+    # if output_file: 
+    plt.savefig('/Users/zduguid/Desktop/dat/tmp-polar.png')
 
 
 
@@ -238,7 +240,8 @@ def plot_incidence_curves(time_series, variable_size=False, output_file=None,
     # plot scatter plot of incidence angle and intensity values
     ax = sns.scatterplot(
         x=time_series.df.incidence_angle, 
-        y=time_series.df.max_intensity_norm,
+        # y=time_series.df.max_intensity_norm,
+        y=time_series.df.max_intensity,
         size=size,
         hue=time_series.df.label_ice_category,
         palette=palette,
@@ -249,7 +252,7 @@ def plot_incidence_curves(time_series, variable_size=False, output_file=None,
     ax.set_title('Incidence vs Intensity for Water and Ice', 
                  fontsize=22, fontweight='bold')
     ax.set_xlabel('Incidence Angle [deg]')
-    ax.set_ylabel('Max Intensity Norm [dB$\cdot$m]')
+    ax.set_ylabel('Max Intensity [dB]')
 
     if axis_limits:
         ax.set_ylim(-pad_y, y_max+pad_y)
@@ -261,7 +264,8 @@ def plot_incidence_curves(time_series, variable_size=False, output_file=None,
     ax.legend(new_handles, new_labels, title='Ice Category', loc='lower left')
 
     # save the figure
-    if output_file: plt.savefig("../figs/%s.png" % (output_file))
+    # if output_file: plt.savefig("../figs/%s.png" % (output_file))
+    plt.savefig('/Users/zduguid/Desktop/fig/tmp-incidence.png')
 
 
 

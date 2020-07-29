@@ -2,7 +2,6 @@
 # 
 # Represents a Micron Sonar time series of ensemble measurements.
 #   2020-03-13  zduguid@mit.edu         initial implementation 
- 
 
 import csv
 import numpy as np
@@ -68,6 +67,9 @@ class MicronTimeSeries(MicronSonar):
         
         Args: 
             filepath: the filepath to the csv file to be opened and parsed.
+
+        Returns:
+            Micron Sonar Time Series object.
         """
         # parse the DataFrame from the provided CSV file
         name   = filepath.split('/')[-1].split('.')[0]
@@ -80,7 +82,7 @@ class MicronTimeSeries(MicronSonar):
             raise ValueError("bad csv file for: from_csv(%s)" % (name))
 
         ts._df = new_df
-        return(ts)
+        return ts
 
 
     @classmethod
@@ -90,11 +92,11 @@ class MicronTimeSeries(MicronSonar):
         print("Parsing folder of CSV files")
         # acquire a list of all files in the provided directory 
         file_list   = [f for f in listdir(filepath) if 
-                       isfile(join(filepath, f)) and f.split('.')[-1] == 'CSV']
+                       isfile(join(filepath, f)) and f.split('.')[-1] == 'csv']
         frames      = [cls.from_csv(filepath+f).df for f in file_list]
         ts          =  cls.from_frames(frames, name)
         print('>> Finished Parsing!')
-        return(ts)
+        return ts
 
 
     @classmethod
@@ -111,7 +113,7 @@ class MicronTimeSeries(MicronSonar):
 
         # combine the DataFrames together 
         ts._df = pd.concat(frames)
-        return(ts)
+        return ts
 
 
     @classmethod
@@ -130,6 +132,7 @@ class MicronTimeSeries(MicronSonar):
             bearing_bias: bias in the sonar head (positive means rolling right)
             constant_depth: Depth in [m] that the sonar is operating
             constant_altitude: Altitude in [m] that the sonar is operating
+
         Returns:
             Micron Sonar Time Series object.
         """
@@ -168,7 +171,7 @@ class MicronTimeSeries(MicronSonar):
         # convert the list of ensembles into a DataFrame and then return
         ts.to_dataframe()
         print('  >> Finished Parsing!')
-        return(ts)
+        return ts
 
 
     def add_ensemble(self, ensemble):
@@ -212,25 +215,25 @@ class MicronTimeSeries(MicronSonar):
 
 
     def save_as_csv(self, name=None, directory='./'):
-            """Saves the DataFrame to csv file. 
+        """Saves the DataFrame to csv file. 
 
-            Args:
-                name: name used when saving the file.
-                directory: string directory to save the DataFrame to.
-            """
-            # update name if not given
-            if name is None:
-                name = self.name 
+        Args:
+            name: name used when saving the file.
+            directory: string directory to save the DataFrame to.
+        """
+        # update name if not given
+        if name is None:
+            name = self.name 
 
-            # add ensembles to the DataFrame if they haven't been added yet
-            if self.ensemble_list:
-                self.to_dataframe()
+        # add ensembles to the DataFrame if they haven't been added yet
+        if self.ensemble_list:
+            self.to_dataframe()
 
-            # save DataFrame to csv file
-            if self.df is not None:
-                self.df.to_csv(directory+name+'.CSV')
-            else:
-                print("WARNING: No data to save.")
+        # save DataFrame to csv file
+        if self.df is not None:
+            self.df.to_csv(directory+name+'.CSV')
+        else:
+            print("WARNING: No data to save.")
 
 
     def set_label_by_bearing(self, var, val, bearing_min, bearing_max, pad=0):
@@ -266,17 +269,17 @@ class MicronTimeSeries(MicronSonar):
             self.set_label_by_bearing(label, val, bearing_min, bearing_max)
 
 
-    def crop_on_bearing(self, left_bearing=-180, right_bearing=180,
+    def crop_on_bearing(self, left_angle=-180, right_angle=180,
         single_swath=False):
         """Crops DataFrame based on bearing value of sonar ensembles.  
 
         Allows the option of down-selecting a single swath from the data file.
 
         Args:
-            left_bearing: the left-most bearing to be included in the cropped 
+            left_angle: the left-most bearing to be included in the cropped 
                 DataFrame. Default value includes full bearing window.
             
-            right_bearing: the right-most bearing to be included in the cropped
+            right_angle: the right-most bearing to be included in the cropped
                 DataFrame. Default value includes full bearing window.
             
             single_swath: Boolean flag that determines if a single swath is 
@@ -289,19 +292,19 @@ class MicronTimeSeries(MicronSonar):
         ts = MicronTimeSeries(name)
 
         # crop bearing differently depending on relative value of bearings 
-        if right_bearing > left_bearing:
-            ts._df = self.df[(self.df.bearing_ref_world >= left_bearing) & 
-                             (self.df.bearing_ref_world <= right_bearing)]
+        if right_angle > left_angle:
+            ts._df = self.df[(self.df.bearing_ref_world >= left_angle) & 
+                             (self.df.bearing_ref_world <= right_angle)].copy()
         else: 
-            ts._df = self.df[(self.df.bearing_ref_world >= left_bearing) | 
-                             (self.df.bearing_ref_world <= right_bearing)]
+            ts._df = self.df[(self.df.bearing_ref_world >= left_angle) | 
+                             (self.df.bearing_ref_world <= right_angle)].copy()
 
         # down-select one complete swath within the bearing window provided
         if single_swath:
             steps  = self.df.steps[0]
             steps += -0.1
-            swath  = math.ceil(abs(right_bearing-left_bearing)/steps)*2
+            swath  = math.ceil(abs(right_angle-left_angle)/steps)*2
             ts._df = ts.df[:swath]
 
-        return(ts)
+        return ts
 

@@ -18,6 +18,7 @@ class MicronSonar(object):
         self.GRAD_TO_DEG = 360/6400     # [1/16 Gradians] -> [deg]
         self.DM_TO_M     = 1/10         # [dm] -> [m]
         self.BIN_TO_DB   = 80/255       # [0,255] -> [0,80dB]
+        self.BIN_TO_PER  = 1/255        # [0,255] -> [0,1] (percentage)
 
         # other constants 
         #   - the min_range parameter was taken from the sonar spec sheet

@@ -65,7 +65,7 @@ class MicronEnsemble(MicronSonar):
         if (var not in self.label_set):
             raise ValueError("bad variable for: get(%s)" % (var))
         else:
-            return(self.data_array[self.data_lookup[var]])
+            return self.data_array[self.data_lookup[var]]
 
 
     def set_data(self, var, val, attribute=True):
@@ -115,12 +115,13 @@ class MicronEnsemble(MicronSonar):
 
         # convert header values to standard metric values 
         self.convert_to_metric('range_scale', self.DM_TO_M)
+        self.convert_to_metric('gain',        self.BIN_TO_PER)
+        self.convert_to_metric('ad_low',      self.BIN_TO_DB)
+        self.convert_to_metric('ad_span',     self.BIN_TO_DB)
         self.convert_to_metric('left_lim',    self.GRAD_TO_DEG)
         self.convert_to_metric('right_lim',   self.GRAD_TO_DEG)
         self.convert_to_metric('steps',       self.GRAD_TO_DEG*2)
         self.convert_to_metric('bearing',     self.GRAD_TO_DEG)
-        self.convert_to_metric('ad_low',      self.BIN_TO_DB)
-        self.convert_to_metric('ad_span',     self.BIN_TO_DB)
 
         # update coordinate system of Micron Sonar bearing 
         #   - includes bearing bias correction 
@@ -232,7 +233,7 @@ class MicronEnsemble(MicronSonar):
         # if given, include bearing bias term (possible due to vehicle roll)
         if bias: 
             bearing_deg += self.get_data('bearing_bias')
-        return(bearing_deg)
+        return bearing_deg
 
 
     def filter_blanking_distance(self):
@@ -301,7 +302,7 @@ class MicronEnsemble(MicronSonar):
             peak_start_bin = len(left_of_max) - np.argmax(left_of_max[::-1]==0)
             peak_end_bin   = np.argmax(right_of_max==0) + max_bin_index
         
-        return(peak_start_bin, peak_end_bin)
+        return peak_start_bin, peak_end_bin
 
 
     def get_vertical_range(self):
